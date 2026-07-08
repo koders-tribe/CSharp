@@ -1,20 +1,24 @@
-// ← ADD THESE USING DIRECTIVES AT THE TOP
 using StudentManagementAPI.Data;
 using StudentManagementAPI.Services;
+using Microsoft.EntityFrameworkCore;
 
 var builder = WebApplication.CreateBuilder(args);
+
+//Configure Entity Framework Core with SQL Server
+builder.Services.AddDbContext<AppDbContext>(options =>
+    options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection"))
+);
 
 // Add services to the container
 builder.Services.AddControllers();
 builder.Services.AddSwaggerGen();
 
-// ← THE MAGIC: Register services for DI
+// Dependency Injection Registration
 builder.Services.AddScoped<IStudentRepository, StudentRepository>();
 builder.Services.AddScoped<IStudentService, StudentService>();
 
 var app = builder.Build();
 
-// Configure the HTTP request pipeline
 if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();

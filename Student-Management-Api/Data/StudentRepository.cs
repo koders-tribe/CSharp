@@ -1,61 +1,43 @@
-// File: Data/StudentRepository.cs
-
 using StudentManagementAPI.Models;
+using StudentManagementAPI.Data;
 
 namespace StudentManagementAPI.Data
 {
-    public class StudentRepository : IStudentRepository  // ← Implements the interface
+    public class StudentRepository : IStudentRepository
     {
-        // Temporary in-memory storage (Day 3 we'll replace with database)
-        private static List<Student> students = new()
-        {
-            new Student { Id = 1, Name = "Balaji", Email = "balaji@example.com", Phone = "9876543210", CreatedAt = DateTime.Now },
-            new Student { Id = 2, Name = "John", Email = "john@example.com", Phone = "9876543211", CreatedAt = DateTime.Now }
-        };
+        private readonly AppDbContext _context;  // ← Changed from List!
         
-        // ← MUST implement GetAll() (from interface)
+        public StudentRepository(AppDbContext context)  // ← New constructor!
+        {
+            _context = context;
+        }
+        
         public List<Student> GetAll()
         {
-            // Returns all students from in-memory list
-            return students;
+            return _context.Students.ToList();  // ← Changed from students.ToList()!
         }
         
-        // ← MUST implement GetById() (from interface)
         public Student? GetById(int id)
         {
-            // Find student by ID
-            return students.FirstOrDefault(s => s.Id == id);
-            // FirstOrDefault = returns student or null if not found
+            return _context.Students.FirstOrDefault(s => s.Id == id);  // ← Changed!
         }
         
-        // ← MUST implement Add() (from interface)
         public Student Add(Student student)
         {
-            // Generate ID (max ID + 1)
-            student.Id = students.Count > 0 ? students.Max(s => s.Id) + 1 : 1;
-            
-            // Set creation date
-            student.CreatedAt = DateTime.Now;
-            
-            // Add to list
-            students.Add(student);
-            
-            // Return the added student (with generated ID)
+            _context.Students.Add(student);      // ← Changed!
+            _context.SaveChanges();              // ← New: commit to database!
             return student;
         }
         
-        // ← MUST implement Delete() (from interface)
         public bool Delete(int id)
         {
-            var student = GetById(id);  // Find the student
+            var student = GetById(id);
+            if (student == null)
+                return false;
             
-            if (student != null)
-            {
-                students.Remove(student);  // Remove from list
-                return true;               // Success
-            }
-            
-            return false;  // Not found
+            _context.Students.Remove(student);   // ← Changed!
+            _context.SaveChanges();              // ← New: commit to database!
+            return true;
         }
     }
 }

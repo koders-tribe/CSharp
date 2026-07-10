@@ -9,14 +9,41 @@ namespace StudentManagementAPI.Data
         {
         }
 
+        // ===== DbSets for all entities =====
         public DbSet<Student> Students { get; set; }
         public DbSet<Teacher> Teachers { get; set; }
         public DbSet<Parent> Parents { get; set; }
+        public DbSet<StudentTeacher> StudentTeachers { get; set; }  // NEW
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             base.OnModelCreating(modelBuilder);
 
+            // ===== Configure Student - Parent Relationship (1:Many) =====
+            modelBuilder.Entity<Student>()
+                .HasOne(s => s.Parent)                          // Student has ONE Parent
+                .WithMany(p => p.Students)                      // Parent has MANY Students
+                .HasForeignKey(s => s.ParentId)                 // Foreign key is ParentId
+                .OnDelete(DeleteBehavior.Restrict);             // Restrict deletion if has students
+
+            // ===== Configure Student - Teacher Relationship (Many:Many) =====
+            // Configure the junction table
+            modelBuilder.Entity<StudentTeacher>()
+                .HasKey(st => new { st.StudentId, st.TeacherId });  // Composite key
+
+            // Student side of relationship
+            modelBuilder.Entity<StudentTeacher>()
+                .HasOne(st => st.Student)                       // StudentTeacher has ONE Student
+                .WithMany(s => s.StudentTeachers)               // Student has MANY StudentTeachers
+                .HasForeignKey(st => st.StudentId);             // Foreign key
+
+            // Teacher side of relationship
+            modelBuilder.Entity<StudentTeacher>()
+                .HasOne(st => st.Teacher)                       // StudentTeacher has ONE Teacher
+                .WithMany(t => t.StudentTeachers)               // Teacher has MANY StudentTeachers
+                .HasForeignKey(st => st.TeacherId);             // Foreign key
+
+            // ===== Configure Student table =====
             modelBuilder.Entity<Student>(entity =>
             {
                 entity.HasKey(e => e.Id);

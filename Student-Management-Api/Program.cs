@@ -16,6 +16,8 @@ builder.Services.AddSwaggerGen();
 // Dependency Injection Registration
 builder.Services.AddScoped<IStudentRepository, StudentRepository>();
 builder.Services.AddScoped<IStudentService, StudentService>();
+builder.Services.AddScoped<IParentRepository, ParentRepository>();
+builder.Services.AddScoped<IParentService, ParentService>();
 
 var app = builder.Build();
 

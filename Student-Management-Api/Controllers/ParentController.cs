@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Mvc;
 using StudentManagementAPI.Services;
+using StudentManagementAPI.Services.Dtos;
 
 namespace StudentManagementAPI.Controllers
 {

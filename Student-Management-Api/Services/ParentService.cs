@@ -1,28 +1,10 @@
 using StudentManagementAPI.Data;
 using StudentManagementAPI.Models;
+using StudentManagementAPI.Services.Dtos;
+
 
 namespace StudentManagementAPI.Services
 {
-    // DTO for creating parent
-    public class CreateParentDto
-    {
-        public string? Name { get; set; }
-        public string? Email { get; set; }
-        public string? Phone { get; set; }
-        public string? Occupation { get; set; }
-        public string? Relationship { get; set; }
-    }
-
-    // DTO for updating parent
-    public class UpdateParentDto
-    {
-        public string? Name { get; set; }
-        public string? Email { get; set; }
-        public string? Phone { get; set; }
-        public string? Occupation { get; set; }
-        public string? Relationship { get; set; }
-    }
-
     public class ParentService : IParentService
     {
         private readonly IParentRepository _repository;

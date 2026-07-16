@@ -72,5 +72,120 @@ namespace StudentManagementAPI.Data
             _context.SaveChanges();
             return true;
         }
+
+        // ═══════════════════════════════════════════════════════════════
+        // DAY 5: NEW METHODS FOR PAGINATION, FILTERING & SEARCH
+        // ═══════════════════════════════════════════════════════════════
+
+        public async Task<List<Student>> GetPaginatedAsync(
+            int page,
+            int pageSize,
+            string? search = null,
+            int? grade = null,
+            int? parentId = null,
+            string sortBy = "name",
+            bool descending = false)
+        {
+            // WHY: Build query step by step
+            var query = _context.Students.AsQueryable();
+
+            // STEP 1: Apply search filter
+            // WHY: Search in multiple fields (name, email, phone)
+            if (!string.IsNullOrEmpty(search))
+            {
+                var searchLower = search.ToLower();
+                query = query.Where(s =>
+                    (s.Name ?? "").ToLower().Contains(searchLower) ||
+                    (s.Email ?? "").ToLower().Contains(searchLower) ||
+                    (s.Phone ?? "").Contains(search)
+                );
+            }
+
+            // STEP 2: Apply grade filter
+            // WHY: Simple equality check
+            if (grade.HasValue)
+            {
+                query = query.Where(s => s.Grade == grade.Value);
+            }
+
+            // STEP 3: Apply parent filter
+            // WHY: Filter by relationship
+            if (parentId.HasValue)
+            {
+                query = query.Where(s => s.ParentId == parentId.Value);
+            }
+
+            // STEP 4: Apply sorting
+            // WHY: Switch expression for clean routing
+            query = (sortBy.ToLower(), descending) switch
+            {
+                ("name", false) => query.OrderBy(s => s.Name),
+                ("name", true) => query.OrderByDescending(s => s.Name),
+                ("grade", false) => query.OrderBy(s => s.Grade),
+                ("grade", true) => query.OrderByDescending(s => s.Grade),
+                ("date", false) => query.OrderBy(s => s.DateOfBirth),
+                ("date", true) => query.OrderByDescending(s => s.DateOfBirth),
+                _ => query.OrderBy(s => s.Name)  // Default
+            };
+
+            // STEP 5: Apply pagination
+            // WHY: Skip first N, take next N
+            var result = await query
+                .Skip((page - 1) * pageSize)    // Skip formula: (page-1) * size
+                .Take(pageSize)                 // Take exact page size
+                .Include(s => s.Parent)         // Load relationships (single JOIN)
+                .AsNoTracking()                 // Read-only (performance)
+                .ToListAsync();                 // Execute async
+
+            return result;
+        }
+
+        public async Task<int> GetCountAsync(
+            string? search = null,
+            int? grade = null,
+            int? parentId = null)
+        {
+            // WHY: Same filters as GetPaginatedAsync, but just count
+            var query = _context.Students.AsQueryable();
+
+            if (!string.IsNullOrEmpty(search))
+            {
+                var searchLower = search.ToLower();
+                query = query.Where(s =>
+                    (s.Name ?? "").ToLower().Contains(searchLower) ||
+                    (s.Email ?? "").ToLower().Contains(searchLower) ||
+                    (s.Phone ?? "").Contains(search)
+                );
+            }
+
+            if (grade.HasValue)
+            {
+                query = query.Where(s => s.Grade == grade.Value);
+            }
+
+            if (parentId.HasValue)
+            {
+                query = query.Where(s => s.ParentId == parentId.Value);
+            }
+
+            return await query.CountAsync();
+        }
+
+        public async Task<List<Student>> SearchAsync(string search)
+        {
+            // WHY: Simple search without pagination
+            if (string.IsNullOrEmpty(search))
+                return await _context.Students.ToListAsync();
+
+            var searchLower = search.ToLower();
+            return await _context.Students
+                .Where(s =>
+                    (s.Name ?? "").ToLower().Contains(searchLower) ||
+                    (s.Email ?? "").ToLower().Contains(searchLower)
+                )
+                .OrderBy(s => s.Name)
+                .AsNoTracking()
+                .ToListAsync();
+        }
     }
 }

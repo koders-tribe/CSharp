@@ -1,91 +1,34 @@
 using StudentManagementAPI.Data;
 using StudentManagementAPI.Models;
+using StudentManagementAPI.Services.Dtos;
 
 namespace StudentManagementAPI.Services
 {
-    // DTO for creating student
-    public class CreateStudentDto
-    {
-        public string? Name { get; set; }
-        public string? Email { get; set; }
-        public string? Phone { get; set; }
-        public string? RollNumber { get; set; }
-        public int Grade { get; set; }
-        public DateTime DateOfBirth { get; set; }
-        public int? ParentId { get; set; }
-    }
-
-    // DTO for updating student
-    public class UpdateStudentDto
-    {
-        public string? Name { get; set; }
-        public string? Email { get; set; }
-        public string? Phone { get; set; }
-        public string? RollNumber { get; set; }
-        public int Grade { get; set; }
-        public DateTime DateOfBirth { get; set; }
-        public int? ParentId { get; set; }
-    }
-
-    // DTO: Student with Parent (avoids circular reference)
-    public class StudentWithParentDto
-    {
-        public int Id { get; set; }
-        public string? Name { get; set; }
-        public string? Email { get; set; }
-        public string? Phone { get; set; }
-        public string? RollNumber { get; set; }
-        public int Grade { get; set; }
-        public DateTime DateOfBirth { get; set; }
-        public int? ParentId { get; set; }
-        public DateTime CreatedAt { get; set; }
-        public DateTime? UpdatedAt { get; set; }
-
-        // Parent data (no circular ref - Parent doesn't have Students collection)
-        public ParentDto? Parent { get; set; }
-    }
-
-    // DTO: Parent (simple, no Students collection)
-    public class ParentDto
-    {
-        public int Id { get; set; }
-        public string? Name { get; set; }
-        public string? Email { get; set; }
-        public string? Phone { get; set; }
-        public string? Occupation { get; set; }
-        public string? Relationship { get; set; }
-        public DateTime CreatedAt { get; set; }
-        public DateTime? UpdatedAt { get; set; }
-    }
-
     public class StudentService : IStudentService
     {
         private readonly IStudentRepository _repository;
-
+        
+        // ← Repository injected via constructor
         public StudentService(IStudentRepository repository)
         {
             _repository = repository;
         }
-
-        // Get all students
+        
         public List<Student> GetAllStudents()
         {
             return _repository.GetAll();
         }
-
-        // Get student by ID
+        
         public Student? GetStudentById(int id)
         {
             return _repository.GetById(id);
         }
 
-        // Get student with parent
         public Student? GetStudentWithParent(int id)
         {
             return _repository.GetByIdWithParent(id);
         }
 
-        // Get student with parent as DTO (no circular reference)
         public StudentWithParentDto? GetStudentWithParentDto(int id)
         {
             var student = _repository.GetByIdWithParent(id);
@@ -118,15 +61,15 @@ namespace StudentManagementAPI.Services
             };
         }
 
-        // Create student
         public Student CreateStudent(CreateStudentDto dto)
         {
+            // Business logic: validation
             if (string.IsNullOrWhiteSpace(dto.Name))
-                throw new ArgumentException("Student name is required");
-
+                throw new ArgumentException("Name is required");
+            
             if (string.IsNullOrWhiteSpace(dto.Email))
-                throw new ArgumentException("Student email is required");
-
+                throw new ArgumentException("Email is required");
+            
             var student = new Student
             {
                 Name = dto.Name,
@@ -141,7 +84,6 @@ namespace StudentManagementAPI.Services
             return _repository.Add(student);
         }
 
-        // Update student
         public Student? UpdateStudent(int id, UpdateStudentDto dto)
         {
             var student = GetStudentById(id);
@@ -163,10 +105,119 @@ namespace StudentManagementAPI.Services
             return _repository.Update(id, updatedStudent);
         }
 
-        // Delete student
         public bool DeleteStudent(int id)
         {
             return _repository.Delete(id);
+        }
+
+        // ═══════════════════════════════════════════════════════════════
+        // DAY 5: PAGINATION, FILTERING & SEARCH METHODS
+        // ═══════════════════════════════════════════════════════════════
+
+        /// <summary>
+        /// Get paginated, filtered, and sorted students with complete response
+        /// </summary>
+        public async Task<PaginatedResponse<StudentDto>> GetStudentsPaginatedAsync(
+            StudentFilterDto filter)
+        {
+            // Validate input parameters
+            if (filter.Page < 1) 
+                filter.Page = 1;
+            if (filter.PageSize < 1 || filter.PageSize > 100) 
+                filter.PageSize = 10;
+
+            // Get paginated data from repository
+            var students = await _repository.GetPaginatedAsync(
+                page: filter.Page,
+                pageSize: filter.PageSize,
+                search: filter.Search,
+                grade: filter.Grade,
+                parentId: filter.ParentId,
+                sortBy: filter.SortBy,
+                descending: filter.Descending
+            );
+
+            // Get total count for pagination info
+            var totalRecords = await _repository.GetCountAsync(
+                search: filter.Search,
+                grade: filter.Grade,
+                parentId: filter.ParentId
+            );
+
+            // Convert models to DTOs (prevent circular references)
+            var dtos = students.Select(s => new StudentDto
+            {
+                Id = s.Id,
+                Name = s.Name,
+                Email = s.Email,
+                Phone = s.Phone,
+                RollNumber = s.RollNumber,
+                Grade = s.Grade,
+                DateOfBirth = s.DateOfBirth,
+                ParentId = s.ParentId,
+                CreatedAt = s.CreatedAt,
+                UpdatedAt = s.UpdatedAt,
+                Parent = s.Parent == null ? null : new ParentDto
+                {
+                    Id = s.Parent.Id,
+                    Name = s.Parent.Name,
+                    Email = s.Parent.Email,
+                    Phone = s.Parent.Phone,
+                    Occupation = s.Parent.Occupation,
+                    Relationship = s.Parent.Relationship
+                }
+            }).ToList();
+
+            // Calculate pagination info
+            var totalPages = (int)Math.Ceiling((double)totalRecords / filter.PageSize);
+
+            return new PaginatedResponse<StudentDto>
+            {
+                Data = dtos,
+                TotalRecords = totalRecords,
+                TotalPages = totalPages,
+                CurrentPage = filter.Page,
+                PageSize = filter.PageSize,
+                HasPreviousPage = filter.Page > 1,
+                HasNextPage = filter.Page < totalPages
+            };
+        }
+
+        /// <summary>
+        /// Simple search students by name or email
+        /// Returns all matching students without pagination
+        /// </summary>
+        public async Task<List<StudentDto>> SearchStudentsAsync(string search)
+        {
+            if (string.IsNullOrEmpty(search))
+                return new List<StudentDto>();
+
+            var students = await _repository.SearchAsync(search);
+
+            return students.Select(s => new StudentDto
+            {
+                Id = s.Id,
+                Name = s.Name,
+                Email = s.Email,
+                Phone = s.Phone,
+                Grade = s.Grade
+            }).ToList();
+        }
+
+        /// <summary>
+        /// Get all students of a specific grade
+        /// </summary>
+        public async Task<List<StudentDto>> GetStudentsByGradeAsync(int grade)
+        {
+            var filter = new StudentFilterDto
+            {
+                Grade = grade,
+                Page = 1,
+                PageSize = 100  // Get all
+            };
+
+            var result = await GetStudentsPaginatedAsync(filter);
+            return result.Data;
         }
     }
 }

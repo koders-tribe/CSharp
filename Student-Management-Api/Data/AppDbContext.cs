@@ -19,6 +19,26 @@ namespace StudentManagementAPI.Data
         {
             base.OnModelCreating(modelBuilder);
 
+            // ===== Configure Parent table =====
+            modelBuilder.Entity<Parent>(entity =>
+            {
+                entity.HasKey(e => e.Id);
+
+                entity.Property(e => e.Id)
+                    .ValueGeneratedOnAdd()
+                    .UseIdentityColumn(seed: 1, increment: 1);
+            });
+
+            // ===== Configure Teacher table =====
+            modelBuilder.Entity<Teacher>(entity =>
+            {
+                entity.HasKey(e => e.Id);
+
+                entity.Property(e => e.Id)
+                    .ValueGeneratedOnAdd()
+                    .UseIdentityColumn(seed: 1, increment: 1);
+            });
+
             // ===== Configure Student - Parent Relationship (1:Many) =====
             modelBuilder.Entity<Student>()
                 .HasOne(s => s.Parent)                          // Student has ONE Parent
@@ -47,11 +67,16 @@ namespace StudentManagementAPI.Data
             modelBuilder.Entity<Student>(entity =>
             {
                 entity.HasKey(e => e.Id);
-                
+
+                // Configure ID to auto-increment from 1
+                entity.Property(e => e.Id)
+                    .ValueGeneratedOnAdd()
+                    .UseIdentityColumn(seed: 1, increment: 1);
+
                 entity.Property(e => e.Name)
                     .IsRequired()
                     .HasMaxLength(100);
-                
+
                 entity.Property(e => e.Email)
                     .IsRequired()
                     .HasMaxLength(100);

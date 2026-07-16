@@ -7,9 +7,11 @@
 // Controller returns appropriate HTTP status codes (200, 201, 400, 404, 500)
 // Controller uses DTOs for input/output
 
+
 using Microsoft.AspNetCore.Mvc;
-using StudentManagementAPI.Data;
+using StudentManagementAPI.Models;
 using StudentManagementAPI.Services;
+using StudentManagementAPI.Services.Dtos;
 
 namespace StudentManagementAPI.Controllers
 {
@@ -18,32 +20,33 @@ namespace StudentManagementAPI.Controllers
     public class StudentsController : ControllerBase
     {
         private readonly IStudentService _studentService;
-        private readonly IParentRepository _parentRepository;
-
-        public StudentsController(IStudentService studentService, IParentRepository parentRepository)
+        
+        // ← Service injected via constructor (Dependency Injection!)
+        public StudentsController(IStudentService studentService)
         {
             _studentService = studentService;
-            _parentRepository = parentRepository;
         }
-
-        // GET: api/students
-        // Get all students
+        
+        /// <summary>
+        /// Get all students
+        /// </summary>
         [HttpGet]
         public IActionResult GetAllStudents()
         {
             try
             {
                 var students = _studentService.GetAllStudents();
-                return Ok(new { success = true, data = students, count = students.Count });
+                return Ok(students);
             }
             catch (Exception ex)
             {
-                return StatusCode(500, new { success = false, message = "Error", error = ex.Message });
+                return StatusCode(500, new { message = "Error fetching students", error = ex.Message });
             }
         }
-
-        // GET: api/students/{id}
-        // Get student by ID
+        
+        /// <summary>
+        /// Get student by ID
+        /// </summary>
         [HttpGet("{id}")]
         public IActionResult GetStudentById(int id)
         {
@@ -51,57 +54,40 @@ namespace StudentManagementAPI.Controllers
             {
                 var student = _studentService.GetStudentById(id);
                 if (student == null)
-                    return NotFound(new { success = false, message = $"Student with ID {id} not found" });
-
-                return Ok(new { success = true, data = student });
+                    return NotFound(new { message = $"Student with ID {id} not found" });
+                
+                return Ok(student);
             }
             catch (Exception ex)
             {
-                return StatusCode(500, new { success = false, message = "Error", error = ex.Message });
+                return StatusCode(500, new { message = "Error fetching student", error = ex.Message });
             }
         }
-
-        // GET: api/students/{id}/with-parent
-        // Get student with parent (using DTO to avoid circular reference)
-        [HttpGet("{id}/with-parent")]
-        public IActionResult GetStudentWithParent(int id)
-        {
-            try
-            {
-                var student = _studentService.GetStudentWithParentDto(id);
-                if (student == null)
-                    return NotFound(new { success = false, message = $"Student with ID {id} not found" });
-
-                return Ok(new { success = true, data = student });
-            }
-            catch (Exception ex)
-            {
-                return StatusCode(500, new { success = false, message = "Error", error = ex.Message });
-            }
-        }
-        // POST: api/students
-        // Create new student
+        
+        /// <summary>
+        /// Create new student
+        /// </summary>
         [HttpPost]
         public IActionResult CreateStudent([FromBody] CreateStudentDto dto)
         {
             try
             {
                 var student = _studentService.CreateStudent(dto);
-                return CreatedAtAction(nameof(GetStudentById), new { id = student.Id },
-                    new { success = true, data = student, message = "Student created successfully" });
+                return CreatedAtAction(nameof(GetStudentById), new { id = student.Id }, student);
             }
             catch (ArgumentException ex)
             {
-                return BadRequest(new { success = false, message = ex.Message });
+                return BadRequest(new { message = ex.Message });
             }
             catch (Exception ex)
             {
-                return StatusCode(500, new { success = false, message = "Error", error = ex.Message });
+                return StatusCode(500, new { message = "Error creating student", error = ex.Message });
             }
         }
-
-        // PUT: api/students/{id}
-        // Update student
+        
+        /// <summary>
+        /// Update student
+        /// </summary>
         [HttpPut("{id}")]
         public IActionResult UpdateStudent(int id, [FromBody] UpdateStudentDto dto)
         {
@@ -109,18 +95,59 @@ namespace StudentManagementAPI.Controllers
             {
                 var student = _studentService.UpdateStudent(id, dto);
                 if (student == null)
-                    return NotFound(new { success = false, message = $"Student with ID {id} not found" });
+                    return NotFound(new { message = $"Student with ID {id} not found" });
 
                 return Ok(new { success = true, data = student, message = "Student updated successfully" });
             }
             catch (Exception ex)
             {
-                return StatusCode(500, new { success = false, message = "Error", error = ex.Message });
+                return StatusCode(500, new { message = "Error updating student", error = ex.Message });
             }
         }
 
-        // DELETE: api/students/{id}
-        // Delete student
+        /// <summary>
+        /// Get student with parent relationship
+        /// </summary>
+        [HttpGet("{id}/with-parent")]
+        public IActionResult GetStudentWithParent(int id)
+        {
+            try
+            {
+                var student = _studentService.GetStudentWithParent(id);
+                if (student == null)
+                    return NotFound(new { message = $"Student with ID {id} not found" });
+
+                return Ok(new { success = true, data = student });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { message = "Error fetching student", error = ex.Message });
+            }
+        }
+
+        /// <summary>
+        /// Get student with parent as DTO (avoids circular reference)
+        /// </summary>
+        [HttpGet("{id}/with-parent-dto")]
+        public IActionResult GetStudentWithParentDto(int id)
+        {
+            try
+            {
+                var student = _studentService.GetStudentWithParentDto(id);
+                if (student == null)
+                    return NotFound(new { message = $"Student with ID {id} not found" });
+
+                return Ok(new { success = true, data = student });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { message = "Error fetching student", error = ex.Message });
+            }
+        }
+
+        /// <summary>
+        /// Delete student
+        /// </summary>
         [HttpDelete("{id}")]
         public IActionResult DeleteStudent(int id)
         {
@@ -128,73 +155,165 @@ namespace StudentManagementAPI.Controllers
             {
                 var result = _studentService.DeleteStudent(id);
                 if (!result)
-                    return NotFound(new { success = false, message = $"Student with ID {id} not found" });
+                    return NotFound(new { message = $"Student with ID {id} not found" });
 
-                return Ok(new { success = true, message = "Student deleted successfully" });
+                return Ok(new { message = "Student deleted successfully" });
             }
             catch (Exception ex)
             {
-                return StatusCode(500, new { success = false, message = "Error", error = ex.Message });
+                return StatusCode(500, new { message = "Error deleting student", error = ex.Message });
             }
         }
 
-        // PUT: api/students/{id}/assign-parent/{parentId}
-        // Assign a parent to a student (relationship operation)
-        [HttpPut("{id}/assign-parent/{parentId}")]
-        public IActionResult AssignParent(int id, int parentId)
+        // ═══════════════════════════════════════════════════════════════════════════════
+        // DAY 5: PAGINATION, FILTERING & SEARCH ENDPOINTS
+        // ═══════════════════════════════════════════════════════════════════════════════
+
+        /// <summary>
+        /// Get students with pagination, filtering, and search
+        /// 
+        /// Query Parameters:
+        ///   - search: Search in name/email/phone (optional)
+        ///   - grade: Filter by grade (optional)
+        ///   - parentId: Filter by parent ID (optional)
+        ///   - page: Page number (default: 1)
+        ///   - pageSize: Items per page (default: 10, max: 100)
+        ///   - sortBy: Sort by (name, grade, date) (default: name)
+        ///   - descending: Sort descending (default: false)
+        /// 
+        /// Examples:
+        ///   GET /api/students/search?page=1&pageSize=10
+        ///   GET /api/students/search?search=balaji
+        ///   GET /api/students/search?grade=10&page=1&pageSize=5
+        ///   GET /api/students/search?search=bal&grade=10&sortBy=grade&descending=true
+        /// </summary>
+        [HttpGet("search")]
+        public async Task<IActionResult> GetStudentsFiltered(
+            [FromQuery] string search = "",
+            [FromQuery] int? grade = null,
+            [FromQuery] int? parentId = null,
+            [FromQuery] int page = 1,
+            [FromQuery] int pageSize = 10,
+            [FromQuery] string sortBy = "name",
+            [FromQuery] bool descending = false)
         {
             try
             {
-                var student = _studentService.GetStudentById(id);
-                if (student == null)
-                    return NotFound(new { success = false, message = $"Student with ID {id} not found" });
-
-                var parent = _parentRepository.GetById(parentId);
-                if (parent == null)
-                    return NotFound(new { success = false, message = $"Parent with ID {parentId} not found" });
-
-                // Update student's parent
-                var updateDto = new UpdateStudentDto
+                // Create filter object from query parameters
+                var filter = new StudentFilterDto
                 {
-                    ParentId = parentId
+                    Search = search,
+                    Grade = grade,
+                    ParentId = parentId,
+                    Page = page,
+                    PageSize = pageSize,
+                    SortBy = sortBy,
+                    Descending = descending
                 };
 
-                var updatedStudent = _studentService.UpdateStudent(id, updateDto);
+                // Call service to get paginated data
+                var result = await _studentService.GetStudentsPaginatedAsync(filter);
 
-                // Convert to DTO to avoid circular reference
-                var resultDto = _studentService.GetStudentWithParentDto(id);
-
-                return Ok(new { success = true, data = resultDto, message = "Parent assigned successfully" });
+                // Return successful response with pagination metadata
+                return Ok(new
+                {
+                    success = true,
+                    message = "Students retrieved successfully",
+                    data = result.Data,
+                    pagination = new
+                    {
+                        totalRecords = result.TotalRecords,
+                        totalPages = result.TotalPages,
+                        currentPage = result.CurrentPage,
+                        pageSize = result.PageSize,
+                        hasPreviousPage = result.HasPreviousPage,
+                        hasNextPage = result.HasNextPage
+                    }
+                });
             }
             catch (Exception ex)
             {
-                return StatusCode(500, new { success = false, message = "Error", error = ex.Message });
+                return StatusCode(500, new 
+                { 
+                    success = false, 
+                    error = ex.Message 
+                });
             }
         }
-        // PUT: api/students/{id}/remove-parent
-        // Remove parent from student
-        [HttpPut("{id}/remove-parent")]
-        public IActionResult RemoveParent(int id)
+
+        /// <summary>
+        /// Quick search students by name or email (without pagination)
+        /// 
+        /// Example:
+        ///   GET /api/students/quick-search?search=balaji
+        /// </summary>
+        [HttpGet("quick-search")]
+        public async Task<IActionResult> QuickSearchStudents(
+            [FromQuery] string search)
         {
             try
             {
-                var student = _studentService.GetStudentById(id);
-                if (student == null)
-                    return NotFound(new { success = false, message = $"Student with ID {id} not found" });
+                if (string.IsNullOrEmpty(search))
+                    return BadRequest(new 
+                    { 
+                        success = false, 
+                        error = "Search term required" 
+                    });
 
-                // Update student's parent to null
-                var updateDto = new UpdateStudentDto
+                var results = await _studentService.SearchStudentsAsync(search);
+
+                return Ok(new
                 {
-                    ParentId = null
-                };
-
-                var updatedStudent = _studentService.UpdateStudent(id, updateDto);
-
-                return Ok(new { success = true, data = updatedStudent, message = "Parent removed successfully" });
+                    success = true,
+                    count = results.Count,
+                    data = results
+                });
             }
             catch (Exception ex)
             {
-                return StatusCode(500, new { success = false, message = "Error", error = ex.Message });
+                return StatusCode(500, new 
+                { 
+                    success = false, 
+                    error = ex.Message 
+                });
+            }
+        }
+
+        /// <summary>
+        /// Get students by grade
+        /// 
+        /// Example:
+        ///   GET /api/students/by-grade/10
+        /// </summary>
+        [HttpGet("by-grade/{grade}")]
+        public async Task<IActionResult> GetStudentsByGrade(int grade)
+        {
+            try
+            {
+                if (grade < 1 || grade > 12)
+                    return BadRequest(new 
+                    { 
+                        success = false, 
+                        error = "Grade must be between 1 and 12" 
+                    });
+
+                var students = await _studentService.GetStudentsByGradeAsync(grade);
+
+                return Ok(new
+                {
+                    success = true,
+                    grade = grade,
+                    count = students.Count,
+                    data = students
+                });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new 
+                { 
+                    success = false, 
+                    error = ex.Message 
+                });
             }
         }
     }

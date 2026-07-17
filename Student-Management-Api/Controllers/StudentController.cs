@@ -12,11 +12,14 @@ using Microsoft.AspNetCore.Mvc;
 using StudentManagementAPI.Models;
 using StudentManagementAPI.Services;
 using StudentManagementAPI.Services.Dtos;
+using Microsoft.AspNetCore.Authorization;  // ← ADD THIS
 
 namespace StudentManagementAPI.Controllers
 {
     [ApiController]
     [Route("api/[controller]")]
+    [Authorize]  // ← ADD THIS - protects all endpoints below
+
     public class StudentsController : ControllerBase
     {
         private readonly IStudentService _studentService;

@@ -13,7 +13,8 @@ namespace StudentManagementAPI.Data
         public DbSet<Student> Students { get; set; }
         public DbSet<Teacher> Teachers { get; set; }
         public DbSet<Parent> Parents { get; set; }
-        public DbSet<StudentTeacher> StudentTeachers { get; set; }  // NEW
+        public DbSet<StudentTeacher> StudentTeachers { get; set; }
+        public DbSet<User> Users { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -35,8 +36,30 @@ namespace StudentManagementAPI.Data
                 entity.HasKey(e => e.Id);
 
                 entity.Property(e => e.Id)
+               .ValueGeneratedOnAdd()
+               .UseIdentityColumn(seed: 1, increment: 1);
+
+                // ✅ ADD THIS to fix the warning
+                entity.Property(e => e.Salary)
+                .HasPrecision(10, 2);  // 10 digits total, 2 after decimal
+            });
+
+            // ===== Configure Student table =====
+            modelBuilder.Entity<Student>(entity =>
+            {
+                entity.HasKey(e => e.Id);
+
+                entity.Property(e => e.Id)
                     .ValueGeneratedOnAdd()
                     .UseIdentityColumn(seed: 1, increment: 1);
+
+                entity.Property(e => e.Name)
+                    .IsRequired()
+                    .HasMaxLength(100);
+
+                entity.Property(e => e.Email)
+                    .IsRequired()
+                    .HasMaxLength(100);
             });
 
             // ===== Configure Student - Parent Relationship (1:Many) =====
@@ -63,57 +86,39 @@ namespace StudentManagementAPI.Data
                 .WithMany(t => t.StudentTeachers)               // Teacher has MANY StudentTeachers
                 .HasForeignKey(st => st.TeacherId);             // Foreign key
 
-            // ===== Configure Student table =====
-            modelBuilder.Entity<Student>(entity =>
+            // ===== Configure User table =====
+            modelBuilder.Entity<User>(entity =>
             {
                 entity.HasKey(e => e.Id);
 
-                // Configure ID to auto-increment from 1
                 entity.Property(e => e.Id)
                     .ValueGeneratedOnAdd()
                     .UseIdentityColumn(seed: 1, increment: 1);
 
-                entity.Property(e => e.Name)
+                entity.Property(e => e.Username)
                     .IsRequired()
-                    .HasMaxLength(100);
+                    .HasMaxLength(50);
 
                 entity.Property(e => e.Email)
                     .IsRequired()
                     .HasMaxLength(100);
+
+                entity.Property(e => e.PasswordHash)
+                    .IsRequired()
+                    .HasMaxLength(255);
+
+                entity.Property(e => e.Role)
+                    .IsRequired()
+                    .HasMaxLength(20);
             });
+
+            // ===== Configure User - Student Relationship (Optional) =====
+            modelBuilder.Entity<User>()
+                .HasOne(u => u.Student)                         // User has ONE Student (optional)
+                .WithMany()                                      // Student has no back-reference
+                .HasForeignKey(u => u.StudentId)                // Foreign key is StudentId
+                .OnDelete(DeleteBehavior.SetNull)               // Delete User, set StudentId to NULL
+                .IsRequired(false);                              // StudentId is OPTIONAL
         }
     }
 }
-
-
-// Code	                                     Purpose
-// using Microsoft.EntityFrameworkCore	Imports EF Core classes
-// AppDbContext :                       DbContext	Makes this the application's database context
-// DbContextOptions	                    Receives database configuration
-// base(options)	                    Passes configuration to EF Core
-// DbSet<Student>	                    Maps the Students table
-// DbSet<Teacher>	                    Maps the Teachers table
-// DbSet<Parent>	                    Maps the Parents table
-// OnModelCreating()	                Configures how models map to the database
-// HasKey()	                            Sets the primary key
-// Property()	                        Configures a column
-// IsRequired()	                        Makes the column NOT NULL
-// HasMaxLength(100)	                Limits the column length to 100 characters
-
-// 1. AppDbContext constructor was called
-//    └─ Received connection options
-//    └─ Knows: Connect to localhost SQL Server
-
-// 2. DbSet<Student> Students
-//    └─ Tells EF Core: "Students table exists"
-
-// 3. OnModelCreating configured
-//    └─ Tells EF Core: "Id is key, Name required, Email required"
-
-// 4. When you call: .ToList()
-//    └─ EF Core generates: SELECT * FROM Students
-//    └─ DbContext translates to SQL
-//    └─ Sends to SQL Server
-//    └─ SQL Server returns data
-//    └─ DbContext converts to Student objects
-//    └─ You get: List<Student>
